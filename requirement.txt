@@ -1,0 +1,14 @@
+carla==0.9.15
+gym==0.21.0
+libsumo==1.18.0
+sumolib==1.18.0
+numba==0.58.1
+numpy==1.26.1
+opencv-python
+pandas==1.4.3
+Pillow==10.0.1
+pygame==2.5.2
+torch==1.12.1+cu116
+torchaudio==0.12.1+cu116
+torchvision==0.13.1+cu116
+traci==1.18.0
