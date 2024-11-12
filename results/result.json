@@ -1,0 +1,352 @@
+[
+    {
+        "CompleteTime": "2024-11-08-21:12:29",
+        "ScenePath": "D:\\Project\\ACDM_open\\scenelibrary\\shortscenes\\action_scene_idm.csv",
+        "NpcMode": "D2RL",
+        "NumScenes": 3,
+        "MeanSpeed": 27.051115613296343,
+        "Duration": 10,
+        "EventDistribution": {
+            "DriveInLine": 0.03333333333333333
+        },
+        "CollisionDistribution": {
+            "HeadCollision": 0,
+            "BackCollision": 0,
+            "SideAttack": 0,
+            "SideVictim": 0
+        },
+        "Relevance": 0.0,
+        "RelMatrix": [
+            [
+                34,
+                0,
+                0,
+                0,
+                0
+            ],
+            [
+                0,
+                32,
+                0,
+                0,
+                0
+            ],
+            [
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            [
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            [
+                0,
+                0,
+                0,
+                0,
+                0
+            ]
+        ]
+    },
+    {
+        "CompleteTime": "2024-11-11-22:41:31",
+        "ScenePath": "D:\\Project\\ACDM_open\\scenelibrary\\shortscenes\\ttc_scene_cdm.csv",
+        "NpcMode": "ACDM",
+        "NumScenes": 5,
+        "MeanSpeed": 28.203527186773396,
+        "Duration": 10,
+        "EventDistribution": {
+            "Collision": 0.07142857142857142,
+            "RearEndRisk": 0.6428571428571429,
+            "Cutin": 0.25,
+            "DriveInLine": 0.03571428571428571,
+            "NPCsCollision": 0.03571428571428571
+        },
+        "CollisionDistribution": {
+            "HeadCollision": 2,
+            "BackCollision": 0,
+            "SideAttack": 0,
+            "SideVictim": 0
+        },
+        "Relevance": 0.48484848484848486,
+        "RelMatrix": [
+            [
+                23,
+                1,
+                0,
+                2,
+                0
+            ],
+            [
+                11,
+                3,
+                0,
+                1,
+                1
+            ],
+            [
+                7,
+                0,
+                3,
+                2,
+                2
+            ],
+            [
+                3,
+                1,
+                0,
+                4,
+                0
+            ],
+            [
+                0,
+                0,
+                1,
+                0,
+                1
+            ]
+        ]
+    },
+    {
+        "CompleteTime": "2024-11-11-22:46:46",
+        "ScenePath": "D:\\Project\\ACDM_open\\scenelibrary\\shortscenes\\ttc_scene_cdm.csv",
+        "NpcMode": "ACDM",
+        "NumScenes": 5,
+        "MeanSpeed": 28.203598790517127,
+        "Duration": 10,
+        "EventDistribution": {
+            "Collision": 0.07142857142857142,
+            "RearEndRisk": 0.6428571428571429,
+            "Cutin": 0.25,
+            "DriveInLine": 0.03571428571428571,
+            "NPCsCollision": 0.03571428571428571
+        },
+        "CollisionDistribution": {
+            "HeadCollision": 2,
+            "BackCollision": 0,
+            "SideAttack": 0,
+            "SideVictim": 0
+        },
+        "Relevance": 0.48484848484848486,
+        "RelMatrix": [
+            [
+                23,
+                1,
+                0,
+                2,
+                0
+            ],
+            [
+                11,
+                3,
+                0,
+                1,
+                1
+            ],
+            [
+                7,
+                0,
+                3,
+                2,
+                2
+            ],
+            [
+                3,
+                1,
+                0,
+                4,
+                0
+            ],
+            [
+                0,
+                0,
+                1,
+                0,
+                1
+            ]
+        ]
+    },
+    {
+        "CompleteTime": "2024-11-12-19:15:10",
+        "ScenePath": "D:\\Project\\ACDM_open\\scenelibrary\\shortscenes\\ttc_scene_cdm.csv",
+        "NpcMode": "ACDM",
+        "NumScenes": 5,
+        "MeanSpeed": 28.203527186773396,
+        "Duration": 10,
+        "EventDistribution": {
+            "Collision": 0.07142857142857142,
+            "RearEndRisk": 0.6428571428571429,
+            "Cutin": 0.25,
+            "DriveInLine": 0.03571428571428571,
+            "NPCsCollision": 0.03571428571428571
+        },
+        "CollisionDistribution": {
+            "HeadCollision": 2,
+            "BackCollision": 0,
+            "SideAttack": 0,
+            "SideVictim": 0
+        },
+        "Relevance": 0.0,
+        "RelMatrix": [
+            [
+                24,
+                0,
+                0,
+                0,
+                0
+            ],
+            [
+                0,
+                16,
+                0,
+                0,
+                0
+            ],
+            [
+                0,
+                0,
+                16,
+                0,
+                0
+            ],
+            [
+                0,
+                0,
+                0,
+                8,
+                0
+            ],
+            [
+                0,
+                0,
+                0,
+                0,
+                2
+            ]
+        ]
+    },
+    {
+        "CompleteTime": "2024-11-12-19:22:49",
+        "ScenePath": "D:\\Project\\ACDM_open\\scenelibrary\\shortscenes\\ttc_scene_cdm.csv",
+        "NpcMode": "ACDM",
+        "NumScenes": 5,
+        "MeanSpeed": 28.203527186773396,
+        "Duration": 10,
+        "EventDistribution": {
+            "Collision": 0.07142857142857142,
+            "RearEndRisk": 0.6428571428571429,
+            "Cutin": 0.25,
+            "DriveInLine": 0.03571428571428571,
+            "NPCsCollision": 0.03571428571428571
+        },
+        "CollisionDistribution": {
+            "HeadCollision": 2,
+            "BackCollision": 0,
+            "SideAttack": 0,
+            "SideVictim": 0
+        },
+        "Relevance": 0.0,
+        "RelMatrix": [
+            [
+                26,
+                0,
+                0,
+                0,
+                0
+            ],
+            [
+                0,
+                16,
+                0,
+                0,
+                0
+            ],
+            [
+                0,
+                0,
+                14,
+                0,
+                0
+            ],
+            [
+                0,
+                0,
+                0,
+                8,
+                0
+            ],
+            [
+                0,
+                0,
+                0,
+                0,
+                2
+            ]
+        ]
+    },
+    {
+        "CompleteTime": "2024-11-12-19:23:36",
+        "ScenePath": "D:\\Project\\ACDM_open\\scenelibrary\\shortscenes\\ttc_scene_cdm.csv",
+        "NpcMode": "ACDM",
+        "NumScenes": 5,
+        "MeanSpeed": 28.203527186773396,
+        "Duration": 10,
+        "EventDistribution": {
+            "Collision": 0.07142857142857142,
+            "RearEndRisk": 0.6428571428571429,
+            "Cutin": 0.25,
+            "DriveInLine": 0.03571428571428571,
+            "NPCsCollision": 0.03571428571428571
+        },
+        "CollisionDistribution": {
+            "HeadCollision": 2,
+            "BackCollision": 0,
+            "SideAttack": 0,
+            "SideVictim": 0
+        },
+        "Relevance": 0.0,
+        "RelMatrix": [
+            [
+                26,
+                0,
+                0,
+                0,
+                0
+            ],
+            [
+                0,
+                16,
+                0,
+                0,
+                0
+            ],
+            [
+                0,
+                0,
+                14,
+                0,
+                0
+            ],
+            [
+                0,
+                0,
+                0,
+                8,
+                0
+            ],
+            [
+                0,
+                0,
+                0,
+                0,
+                2
+            ]
+        ]
+    }
+]

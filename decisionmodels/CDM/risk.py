@@ -1,191 +1,181 @@
-from dstructures.ellipse import EllipseGenerator
+from dstructures import EllipseGenerator
 import utils.extendmath as emath
 import utils.globalvalues as gv
 import numpy as np
-import copy
-from envs.world import CarModule
+from envs import CarModule
+from typing import List, Tuple
+from dstructures import *
 
 
 class Risk(CarModule):
     """
-    计算risk的基类, 各种方法都可继承于此
+    Base class for calculating risk, various methods can inherit from this.
     """
 
-    def __init__(self, ego_id, main_id, map) -> None:
-        super().__init__(ego_id, main_id, map)
-        self._risks = []  # risks与leaves一一对应
+    def __init__(self, ego_id, main_id) -> None:
+        super().__init__(ego_id, main_id)
+        self.risks = []  # Risks correspond one-to-one with leaves
 
-    def get_preferred_leaves(self, leaves, driving_style_risk):
+    def get_preferred_leaves(
+        self, leaves: List[Leaf], driving_style_risk
+    ) -> Tuple[List[Leaf], List[Leaf]]:
         """
-        筛选叶子结点
+        Filter leaf nodes.
         """
-        if len(self._risks) == 0:
-            raise ValueError("You have not calculate risks.")
+        if len(self.risks) == 0:
+            raise ValueError("You have not calculated risks.")
 
         preferred_leaves = []
-        other_leaves = []  # 备用, 现在用来debug
+        other_leaves = []  # Spare, now used for debugging
         for i in range(len(leaves)):
-            if driving_style_risk >= self._risks[i]:
+            if driving_style_risk >= self.risks[i]:
                 preferred_leaves.append(leaves[i])
             else:
                 other_leaves.append(leaves[i])
-        # 如果所有叶子节点都被删除, 选择风险最低的一个
+        # If all leaf nodes are removed, select the one with the lowest risk
         if len(preferred_leaves) == 0:
-            preferred_leaves.append(leaves[np.argmin(self._risks)])
+            preferred_leaves.append(leaves[np.argmin(self.risks)])
 
         return preferred_leaves, other_leaves
 
 
 class CDMRisk(Risk):
     """
-    基于椭圆社会力、超速等因素
+    Based on factors like elliptical social force, overspeeding, etc.
     """
 
-    def __init__(self, ego_id, main_id, map) -> None:
-        super().__init__(ego_id, main_id, map)
+    def __init__(self, ego_id, main_id) -> None:
+        super().__init__(ego_id, main_id)
 
-    def cal_risk_list(self, root, leaves):
+    def cal_risk_list(self, root: CIPORoot, leaves: List[Leaf]):
         """
-        计算risk列表, 与leaves对齐
+        Calculate the risk list, aligned with leaves.
         """
-        self._risks = [0 for _ in range(len(leaves))]
+        self.risks = [0 for _ in range(len(leaves))]
         for i in range(len(leaves)):
             social_force, _ = self.cal_social_force_max(root, leaves[i])
             penalty = self.cal_penalty_risk(root, leaves[i])
             ttc_risk = self.cal_ttc_risk(leaves[i])
-            self._risks[i] = social_force + penalty + ttc_risk
-            leaves[i]._risk = self._risks[i]
-        # print(self._ego_id, self._risks)
+            self.risks[i] = social_force + penalty + ttc_risk
+            leaves[i].risk = self.risks[i]
 
-    def cal_on_time_risk(self, root, leaves):
+    def cal_on_time_risk(self, root: CIPORoot, leaves: List[Leaf]):
         """
-        计算实时的risk用于结果统计
+        Calculate real-time risk for result statistics.
         """
-        # 由于叶子是迭代生成, 所以第一个叶子节点必然是所有车辆保持MAINTAIN, 适合计算当前状态
+        # Since leaves are generated iteratively, the first leaf node must be all vehicles maintaining status, suitable for calculating current status
         leaf = leaves[0]
         total_sf_risk = self.cal_social_force_sum(root, leaf)
         ttc_risk = self.cal_ttc_risk(root)
         return total_sf_risk + ttc_risk
 
-    def cal_ttc_risk(self, leaf):
+    def cal_ttc_risk(self, leaf: Leaf):
         """
-        计算单个叶子结点的ttc风险
+        Calculate the time-to-collision risk for a single leaf node.
         """
-        ego_v_vehicle = leaf._virtual_vehicle_dict.get(self._ego_id)
+        ego_v_vehicle = leaf.virtual_vehicle_dict.get(self.ego_id)
         min_vid_front, min_dist_front, min_vid_back, min_dist_back = (
-            emath.get_lon_closest_vehicle(leaf._virtual_vehicle_dict, self._ego_id)
+            emath.get_lon_closest_vehicle(leaf.virtual_vehicle_dict, self.ego_id)
         )
         ttc_front = -1
         ttc_back = -1
-        # 前方ttc
-        if min_vid_front != None:
+        # Front TTC
+        if min_vid_front is not None:
             ttc_front = max(min_dist_front, 0) / (
-                -leaf._virtual_vehicle_dict.get(min_vid_front)._scalar_velocity
-                + ego_v_vehicle._scalar_velocity
+                -leaf.virtual_vehicle_dict.get(min_vid_front).scalar_velocity
+                + ego_v_vehicle.scalar_velocity
                 + 1e-9
             )
-        # 后方ttc
-        if min_vid_back != None:
+        # Rear TTC
+        if min_vid_back is not None:
             ttc_back = -min(min_dist_back, 0) / (
-                leaf._virtual_vehicle_dict.get(min_vid_back)._scalar_velocity
-                - ego_v_vehicle._scalar_velocity
+                leaf.virtual_vehicle_dict.get(min_vid_back).scalar_velocity
+                - ego_v_vehicle.scalar_velocity
                 - 1e-9
             )
         return self.ttc_to_risk(ttc_front) + self.ttc_to_risk(ttc_back)
 
-    def cal_social_force_sum(self, root, leaf):
+    def cal_social_force_sum(self, root: CIPORoot, leaf: Leaf):
         """
-        计算单个叶子结点的社会力风险(累加版)
+        Calculate the social force risk for a single leaf node (cumulative version).
         """
         total_risk = 0
 
-        # 计算椭圆参数
-        c1_location = root._virtual_vehicle_dict.get(self._ego_id)._transform.location
-        c2_location = leaf._virtual_vehicle_dict.get(self._ego_id)._transform.location
+        # Calculate ellipse parameters
+        c1_location = root.virtual_vehicle_dict.get(self.ego_id).transform.location
+        c2_location = leaf.virtual_vehicle_dict.get(self.ego_id).transform.location
 
-        c = emath.cal_length(
-            emath.cal_rel_location_curve(self._map, c2_location, c1_location)
-        )
+        c = emath.cal_length(emath.cal_rel_location_curve(c2_location, c1_location))
 
-        # 生成椭圆
-        ellipse = EllipseGenerator(self._map, c1_location, c2_location, c)
+        # Generate ellipse
+        ellipse = EllipseGenerator(c1_location, c2_location, c)
 
-        # 计算风险
-        for vid in leaf._virtual_vehicle_dict.keys():
-            if vid != self._ego_id:
-                car_location = leaf._virtual_vehicle_dict.get(vid)._transform.location
+        # Calculate risk
+        for vid in leaf.virtual_vehicle_dict.keys():
+            if vid != self.ego_id:
+                car_location = leaf.virtual_vehicle_dict.get(vid).transform.location
                 total_risk += ellipse.cal_risk_vector(car_location)
         return total_risk
 
-    def cal_social_force_max(self, root, leaf):
+    def cal_social_force_max(self, root: CIPORoot, leaf: Leaf):
         """
-        计算单个叶子结点的社会力风险(max版)
-        返回最大风险和对应的vid
+        Calculate the social force risk for a single leaf node (max version).
+        Return the maximum risk and corresponding vehicle ID.
         """
         max_risk = 0
         max_vid = None
-        # 计算椭圆参数
-        c1_location = root._virtual_vehicle_dict.get(self._ego_id)._transform.location
-        c2_location = leaf._virtual_vehicle_dict.get(self._ego_id)._transform.location
+        # Calculate ellipse parameters
+        c1_location = root.virtual_vehicle_dict.get(self.ego_id).transform.location
+        c2_location = leaf.virtual_vehicle_dict.get(self.ego_id).transform.location
 
-        c = (
-            emath.cal_length(
-                emath.cal_rel_location_curve(self._map, c2_location, c1_location)
-            )
-            / 2
-        )
+        c = emath.cal_length(emath.cal_rel_location_curve(c2_location, c1_location)) / 2
 
-        # 生成椭圆
-        ellipse = EllipseGenerator(self._map, c1_location, c2_location, c)
+        # Generate ellipse
+        ellipse = EllipseGenerator(c1_location, c2_location, c)
 
-        # 计算风险
-        for vid in leaf._virtual_vehicle_dict.keys():
-            if vid != self._ego_id:
-                car_location = leaf._virtual_vehicle_dict.get(vid)._transform.location
+        # Calculate risk
+        for vid in leaf.virtual_vehicle_dict.keys():
+            if vid != self.ego_id:
+                car_location = leaf.virtual_vehicle_dict.get(vid).transform.location
                 elli_risk = ellipse.cal_risk_vector(car_location)
                 if elli_risk >= max_risk:
                     max_risk = elli_risk
                     max_vid = vid
         return max_risk, max_vid
 
-    def cal_penalty_risk(self, root, leaf):
+    def cal_penalty_risk(self, root: CIPORoot, leaf: Leaf):
         """
-        计算超速、变道、碰撞惩罚
+        Calculate penalties for overspeeding, lane changing, collision.
         """
         overspeed_penalty = 0
-        lanechange_penalty = 0
         collision_penalty = 0
-        traj_accuracy = 10  # 轨迹精细度, 指在判断碰撞的时候连续判断多少个点
-        ego_vvehicle = leaf._virtual_vehicle_dict.get(self._ego_id)
-        # 超速
-        speed = ego_vvehicle._scalar_velocity
+        traj_accuracy = 10  # Trajectory accuracy, determining the number of continuous points for collision checking
+        ego_vvehicle = leaf.virtual_vehicle_dict.get(self.ego_id)
+        # Overspeeding
+        speed = ego_vvehicle.scalar_velocity
         speed_threshold = 26.5
         overspeed_penalty_coeff = 3
-        if speed > 26.5:
+        if speed > speed_threshold:
             overspeed_penalty = (
                 overspeed_penalty_coeff * 10 * ((speed - speed_threshold) * 6 / 41) ** 2
             )
 
-        # 变道
-        if ego_vvehicle._control_action in ["SLIDE_LEFT", "SLIDE_RIGHT"]:
-            lanechange_penalty = 2.6 * 2
-
-        # 碰撞
-        for vid in leaf._virtual_vehicle_dict.keys():
+        # Collision
+        for vid in leaf.virtual_vehicle_dict.keys():
             if collision_penalty >= 1000:
                 break
-            # 对每辆车的中间轨迹点判断是否碰撞（避免过程中碰撞的情况检测不到）
+            # Check for collision at intermediate trajectory points for each vehicle to avoid missing mid-process collisions
 
-            if vid != self._ego_id:
+            if vid != self.ego_id:
                 if (
                     -gv.CAR_LENGTH
                     <= emath.cal_distance_along_road(
-                        root._virtual_vehicle_dict.get(self._ego_id)._waypoint,
-                        root._virtual_vehicle_dict.get(vid)._waypoint,
+                        root.virtual_vehicle_dict.get(self.ego_id).waypoint,
+                        root.virtual_vehicle_dict.get(vid).waypoint,
                     )
                     <= gv.CAR_LENGTH
                 ) and (
-                    leaf._virtual_vehicle_dict.get(self._ego_id)._control_action
+                    leaf.virtual_vehicle_dict.get(self.ego_id).control_action
                     in [
                         "SLIDE_RIGHT",
                         "SLIDE_LEFT",
@@ -193,18 +183,16 @@ class CDMRisk(Risk):
                 ):
                     collision_penalty += 1000
                     continue
-                assis_vego = root._virtual_vehicle_dict.get(self._ego_id).clone_self()
-                assis_vother = root._virtual_vehicle_dict.get(vid).clone_self()
+                assis_vego = root.virtual_vehicle_dict.get(self.ego_id).clone_self()
+                assis_vother = root.virtual_vehicle_dict.get(vid).clone_self()
                 for _ in range(traj_accuracy):
-                    assis_vego._transform.location += (
-                        leaf._virtual_vehicle_dict.get(self._ego_id)._transform.location
-                        - root._virtual_vehicle_dict.get(
-                            self._ego_id
-                        )._transform.location
+                    assis_vego.transform.location += (
+                        leaf.virtual_vehicle_dict.get(self.ego_id).transform.location
+                        - root.virtual_vehicle_dict.get(self.ego_id).transform.location
                     ) / traj_accuracy
-                    assis_vother._transform.location += (
-                        leaf._virtual_vehicle_dict.get(vid)._transform.location
-                        - root._virtual_vehicle_dict.get(vid)._transform.location
+                    assis_vother.transform.location += (
+                        leaf.virtual_vehicle_dict.get(vid).transform.location
+                        - root.virtual_vehicle_dict.get(vid).transform.location
                     ) / traj_accuracy
 
                     if assis_vego.judge_collision(assis_vother):
@@ -218,7 +206,7 @@ class CDMRisk(Risk):
     @staticmethod
     def ttc_to_risk(ttc):
         """
-        将time-to-collision转换成risk
+        Convert time-to-collision to risk.
         """
         threshold = 9
         if ttc < 0 or ttc > threshold:
