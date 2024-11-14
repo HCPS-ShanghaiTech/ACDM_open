@@ -2,6 +2,7 @@ import carla
 import os
 import argparse
 import logging
+import multiprocessing
 import utils.globalvalues as gv
 import utils.extendmath as emath
 import utils.dyglobalvalues as dgv
@@ -12,7 +13,7 @@ from manager import *
 import time
 
 
-def run_experiment(scene_path, scene_type, duration, exp_mode):
+def run_experiment(scene_path, scene_type, duration, exp_mode, pool=None):
     """
     Run ACDM or baseline experiment
     """
@@ -41,6 +42,9 @@ def run_experiment(scene_path, scene_type, duration, exp_mode):
 
     scene_info_list = get_scene_info_list(scene_path)
     num_scenes = len(scene_info_list)
+    # multiprocess
+    is_pickleable = True if pool else False
+
     start_time = time.time()
     for scene_idx in range(num_scenes):
         num_cars, main_speed, main_driving_style, main_control_mode, npc_info = (
@@ -48,7 +52,8 @@ def run_experiment(scene_path, scene_type, duration, exp_mode):
         )
         logging.info("Scene: %d", scene_idx + 1)
         dgv.reset_realvehicle_dict()
-        npc_realvehicle_list = list()  # id list
+        npc_realvehicle_id_list = list()  # id list
+        cdm_realvehicle_id_list = list()  # only for multiprocessing
         # Main Car Setting
         vehicle_bp.set_attribute("color", "0, 0, 0")
         main_vehicle = world.spawn_actor(vehicle_bp, main_spawn_point)
@@ -66,7 +71,9 @@ def run_experiment(scene_path, scene_type, duration, exp_mode):
                     main_spawn_point,
                     main_speed,
                     is_d2rl_main,
+                    is_pickleable,
                 )
+                cdm_realvehicle_id_list.append(main_id)
             case "IDM":
                 main_rv = set_idm_vehicle(
                     main_vehicle,
@@ -97,7 +104,10 @@ def run_experiment(scene_path, scene_type, duration, exp_mode):
             vehicle_bp.set_attribute("color", gv.COLOR_DICT[gv.COLOR_LIST[i]])
             vehicle = world.spawn_actor(vehicle_bp, spawn_point)
             logging.info(
-                "The npc car(%d) id is %s, color is %s", i, vehicle.id, gv.COLOR_LIST[i]
+                "The npc car(%d) id is %s, color is %s",
+                i,
+                vehicle.id,
+                gv.COLOR_LIST[i],
             )
             control_mode_dict[str(vehicle.id)] = npc_control_mode
             match npc_control_mode:
@@ -108,7 +118,9 @@ def run_experiment(scene_path, scene_type, duration, exp_mode):
                         main_id,
                         spawn_point,
                         npc_speed,
+                        is_pickleable=is_pickleable,
                     )
+                    cdm_realvehicle_id_list.append(vehicle.id)
                 case "ACDM":
                     npc_rv = set_acdm_vehicle(
                         vehicle,
@@ -116,7 +128,9 @@ def run_experiment(scene_path, scene_type, duration, exp_mode):
                         main_id,
                         spawn_point,
                         npc_speed,
+                        is_pickleable=is_pickleable,
                     )
+                    cdm_realvehicle_id_list.append(vehicle.id)
                 case "IDM":
                     npc_rv = set_idm_vehicle(vehicle, main_id, spawn_point, npc_speed)
                 case "D2RL":
@@ -125,7 +139,7 @@ def run_experiment(scene_path, scene_type, duration, exp_mode):
                     logging.error("NPC control mode should in %s", NPC_CONTROL_MODES)
                     raise ValueError("Wrong main control mode")
             dgv.update_realvehicle_dict(vehicle.id, npc_rv)
-            npc_realvehicle_list.append(vehicle.id)
+            npc_realvehicle_id_list.append(vehicle.id)
 
         # -----------------Single Scene Experiment Params------------------- #
         step = -5  # Warm up for 5 steps
@@ -167,7 +181,7 @@ def run_experiment(scene_path, scene_type, duration, exp_mode):
                             step,
                             main_id,
                             realvehicle_id_list,
-                            npc_realvehicle_list,
+                            npc_realvehicle_id_list,
                             main_control_mode,
                             bv_action_idx_dict,
                             bv_pdf_dict,
@@ -180,19 +194,39 @@ def run_experiment(scene_path, scene_type, duration, exp_mode):
                             lc_maintain_count_dict,
                         )
                     else:
-                        rel_steps, total_steps, num_unsafe = normal_loop(
-                            step,
-                            main_id,
-                            realvehicle_id_list,
-                            npc_realvehicle_list,
-                            main_control_mode,
-                            monitor,
-                            unsafe_num_dict,
-                            pred_net,
-                            rel_steps,
-                            total_steps,
-                            num_unsafe,
-                        )
+                        if pool:
+                            # Multiprocessing
+                            rel_steps, total_steps, num_unsafe = normal_loop_multips(
+                                step,
+                                main_id,
+                                realvehicle_id_list,
+                                npc_realvehicle_id_list,
+                                cdm_realvehicle_id_list,
+                                main_control_mode,
+                                monitor,
+                                unsafe_num_dict,
+                                pred_net,
+                                rel_steps,
+                                total_steps,
+                                num_unsafe,
+                                pool,
+                            )
+                        else:
+                            # Normal (Recommend)
+                            rel_steps, total_steps, num_unsafe = normal_loop(
+                                step,
+                                main_id,
+                                realvehicle_id_list,
+                                npc_realvehicle_id_list,
+                                main_control_mode,
+                                monitor,
+                                unsafe_num_dict,
+                                pred_net,
+                                rel_steps,
+                                total_steps,
+                                num_unsafe,
+                            )
+
                     last_main_s = main_s
                     main_wp = dgv.get_map().get_waypoint(main_vehicle.get_location())
                     main_s = emath.cal_total_in_round_length(main_wp)
@@ -324,8 +358,8 @@ if __name__ == "__main__":
         help="Npc car control mode, choice: ['d2rl', 'acdm', 'cdm']",
     )
     parser.add_argument(
-        "-f",
-        "--scenefile",
+        "-e",
+        "--egomode",
         default="cdm",
         help="Scene library, choose in [cdm, idm, na_cdm, na_idm]",
     )
@@ -354,6 +388,12 @@ if __name__ == "__main__":
         default="short",
         help="Scene Type, choose in [long, short]",
     )
+    parser.add_argument(
+        "-m",
+        "--multiprocessing",
+        action="store_true",
+        help="If using multiprocess version for CDM/ACDM",
+    )
     args = parser.parse_args()
     if args.scenetype == "short":
         scenefile_path = (
@@ -362,7 +402,7 @@ if __name__ == "__main__":
             + "scenes/"
             + args.selection_type
             + "_scene_"
-            + args.scenefile
+            + args.egomode
             + ".csv"
         )
     else:
@@ -371,7 +411,7 @@ if __name__ == "__main__":
             + args.scenetype
             + "scenes/"
             + "select_scene_exp_"
-            + args.scenefile
+            + args.egomode
             + ".csv"
         )
     print("Loaded", scenefile_path)
@@ -380,5 +420,8 @@ if __name__ == "__main__":
         scenefile_path = args.path
     if args.npcmode not in ["d2rl", "acdm", "cdm", "idm"]:
         raise ValueError("Wrong npc mode name!")
-    run_experiment(scenefile_path, args.scenetype, duration, args.npcmode)
-    # run_d2rl_experiment()
+    if args.multiprocessing:
+        with multiprocessing.Pool(processes=(os.cpu_count() // 2) - 2) as pool:
+            run_experiment(scenefile_path, args.scenetype, duration, args.npcmode, pool)
+    else:
+        run_experiment(scenefile_path, args.scenetype, duration, args.npcmode)

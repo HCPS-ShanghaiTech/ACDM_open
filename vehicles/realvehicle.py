@@ -4,11 +4,12 @@ import utils.dyglobalvalues as dgv
 import math
 from .virtualvehicle import VirtualVehicle
 import utils.extendmath as emath
+from utils import pickleable
 
 
 class RealVehicle:
     """
-    被生成在Carla中的实际车辆, 包含了额外的物理信息
+    The actual vehicle generated in Carla which contains additional physical information
     """
 
     def __init__(
@@ -18,60 +19,67 @@ class RealVehicle:
         controller,
         scalar_velocity=0,
         control_action="MAINTAIN",
+        virtual_pickleable=False,
     ):
         self.vehicle = vehicle
-        self.spawn_point = (
-            spawn_point  # carla初始location默认是0,0,0, 因此需要一个初始位置的输入
-        )
+        self.spawn_point = spawn_point  # The default initial location for Carla is (0,0,0), so an input for the initial location is required
         self.scalar_velocity = scalar_velocity
         self.control_action = control_action
         self.controller = controller
         self.next_waypoint = None
         self.target_lane_id = None
         self.lane_changing_route = []
-        self.changing_lane_pace = 0  # 处理变道用，判断是否在变道中以及完成了多少
-        self.nade_observer = None  # 仅仅在D2RL对比实验中使用
+        self.changing_lane_pace = 0  # Determine whether they are in the process of changing lanes and how much has been completed
+        self.nade_observer = None  # Only for D2RL experiment
+        self.virtual_pickleable = virtual_pickleable  # True for multiprocessing mode
 
     def __del__(self):
         pass
 
     def run_step(self, realvehicle_id_list, **kwargs):
-        """一次循环"""
+        """One decision step"""
         self.control_action = self.controller.run_forward(
             realvehicle_id_list, network=kwargs.get("network")
         )
 
     def run_partial_step(self, realvehicle_id_list, **kwargs):
         """
-        假设除去场景中的部分车辆, 返回主车的决策。
+        Assuming excluding some vehicles in the scene
         """
         return self.controller.run_forward(realvehicle_id_list)
 
     def clone_to_virtual(self):
         """
-        创建一个状态与自身相同的VirtualVehicle
+        Create a VirtualVehicle with same state as self
         """
+        waypoint = dgv.get_map().get_waypoint(self.vehicle.get_location())
+        transform = self.vehicle.get_transform()
+        if self.virtual_pickleable:
+            waypoint = pickleable.simp_carla_wp(waypoint)
+            transform = pickleable.from_carla_to_transform(transform)
         return VirtualVehicle(
             self.vehicle.id,
-            dgv.get_map().get_waypoint(self.vehicle.get_location()),
-            self.vehicle.get_transform(),
+            waypoint,
+            transform,
             self.scalar_velocity,
             self.control_action,
+            self.virtual_pickleable,
         )
 
     def cal_lanechanging_route(self):
         """
-        计算变道过程中的路径
+        Calculate the path during the lane change process
         Return: List[carla.Transform]
         """
         traj_length = int(gv.LANE_CHANGE_TIME / gv.STEP_DT)
         route = [None] * (traj_length + 1)
-        # Route的首个元素包含变道开始前最后一个wp, 在调用时轨迹应从route[1]开始
+        # The first element of Route contains the last WP before the lane change begins, \
+        # and the trajectory should start from route [1] when called
         route[0] = self.vehicle.get_transform()
         route[-1] = self.target_dest_wp.transform
-        # 计算变道时车辆的朝向
+        # Diection
         direction_vector = route[-1].location - route[0].location
-        yaw = emath.cal_yaw_by_location(route[-1].location, route[0].location)
+        yaw = math.degrees(math.atan2(direction_vector.y, direction_vector.x))
         rotation = carla.Rotation(pitch=0, yaw=yaw, roll=0)
         for i in range(1, traj_length):
             location = carla.Location(
@@ -90,14 +98,14 @@ class RealVehicle:
 
     def descrete_control(self):
         """
-        离散动作转换为路径规划
+        Convert discrete actions into path planning
         """
         longitude_action_list = ["MAINTAIN", "ACCELERATE", "DECELERATE"]
         lateral_action_list = ["SLIDE_LEFT", "SLIDE_RIGHT", "SLIDE"]
         if self.next_waypoint == None:
             self.next_waypoint = dgv.get_map().get_waypoint(self.spawn_point.location)
         if self.control_action in lateral_action_list:
-            # 涉及到车道变换的动作, 设定一个目标路点, 一秒行驶到目标位置
+            # Actions involving lane changes, setting a target waypoint and driving to the target location in one second
             current_waypoint = dgv.get_map().get_waypoint(self.vehicle.get_location())
             self.current_dest_wp = current_waypoint.next(self.scalar_velocity)[0]
             if self.control_action == "SLIDE":
@@ -107,13 +115,11 @@ class RealVehicle:
                     self.control_action = "SLIDE_LEFT"
             if self.control_action == "SLIDE_LEFT":
                 if self.current_dest_wp.lane_id == gv.LANE_ID["Right"]:
-                    # 目标车道存在
                     self.target_dest_wp = self.current_dest_wp.get_left_lane()
                 else:
                     self.target_dest_wp = self.current_dest_wp
             if self.control_action == "SLIDE_RIGHT":
                 if self.current_dest_wp.lane_id == gv.LANE_ID["Left"]:
-                    # 目标车道存在
                     self.target_dest_wp = self.current_dest_wp.get_right_lane()
                 else:
                     self.target_dest_wp = self.current_dest_wp
@@ -144,7 +150,6 @@ class RealVehicle:
             self.control_action in longitude_action_list
             or type(self.control_action) != str
         ):
-            # 加速, 减速, 保持车道, 保持车道, 过程离散化
             if (
                 self.scalar_velocity <= gv.MIN_SPEED
                 and self.control_action == "DECELERATE"
@@ -168,9 +173,10 @@ class RealVehicle:
 
     def collision_callback(self, other_vehicle):
         """
-        判断两车是否发生碰撞
+        Determine whether two vehicles have collided
         """
-        # 若两车水平距离大于bounding box对角线长度之和，则必然未碰撞
+        # If the horizontal distance between two vehicles is greater than the sum of \
+        # the diagonal lengths of the bounding box, then there must have been no collision
         if (
             self.vehicle.get_location() == carla.Location(0, 0, 0)
             or self.vehicle.get_location().distance_squared_2d(
@@ -183,7 +189,9 @@ class RealVehicle:
             * 4
         ):
             return False
-        # 否则计算两车相对位置向量在主车前进方向上的投影，与车身长度进行比较
+        # Otherwise, calculate the projection of the relative position vectors of \
+        # the two vehicles in the forward direction of the main vehicle and compare \
+        # it with the length of the vehicle body
         distance_vector = other_vehicle.get_location() - self.vehicle.get_location()
         forward_vector = self.vehicle.get_transform().get_forward_vector()
         projection = abs(

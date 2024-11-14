@@ -3,10 +3,20 @@ import utils.dyglobalvalues as dgv
 import utils.extendmath as emath
 import itertools
 import torch
-from utils.extendmath import d_distance_of_lon_action
 from envs import CarModule
 from typing import Dict, Any
 from vehicles.virtualvehicle import VirtualVehicle
+from utils.globalvalues import LON_ACC_DICT, STEP_DT
+
+
+def d_distance_of_lon_action(virtualvehicle, control_action, dT):
+    """
+    Calculate the longitudinal distance moved by the vehicle after dT seconds under the current action
+    """
+    acc = LON_ACC_DICT.get(control_action)
+    return max(
+        virtualvehicle.scalar_velocity * dT + 0.5 * acc * dT * (dT + STEP_DT), 1e-9
+    )
 
 
 class EnumerateTree(CarModule):

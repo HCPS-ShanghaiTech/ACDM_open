@@ -23,7 +23,7 @@ class LaplaceDecision(Decision):
 
     def get_decision(
         self, reward_dict: dict, lon_num: int, lat_num: int, could_change_lane: bool
-    ):
+    ) -> str:
         """Get decision result"""
         for key in reward_dict.keys():
             if key in ["ACCELERATE", "DECELERATE", "MAINTAIN"]:

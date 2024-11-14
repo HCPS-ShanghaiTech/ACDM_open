@@ -23,18 +23,19 @@ class IntelligentDriverModel:
         politness,
     ):
         self.observer = observer
-        self.time_gap = time_gap  # 安全时距
-        self.desired_speed = desired_speed  # 期望速度
-        self.max_acceleration = max_acceleration  # 最大加速度
-        self.minimum_gap = minimum_gap  # 能接受的与前车的最小距离
-        self.acc_exp = acc_exp  # 公式里的δ
-        self.comf_deceleration = comf_deceleration  # 舒适减速度
-        self.control_acceleration = 0  # 最终输出的加速度
-        self.politness = politness  # 责任系数
+        self.time_gap = time_gap
+        self.desired_speed = desired_speed
+        self.max_acceleration = max_acceleration
+        # The minimum acceptable distance from the preceding vehicle
+        self.minimum_gap = minimum_gap
+        self.acc_exp = acc_exp  # δ
+        self.comf_deceleration = comf_deceleration
+        self.control_acceleration = 0  # control action
+        self.politness = politness  # Responsibility coefficient
 
     def get_control_acceleration(self, front_dist, ego_v, delta_v):
         """
-        计算下一步的加速度（纵向）
+        Calculate the acceleration for the next step (longitudinal)
         """
         MINI_speed = 70 / 3.6
         if delta_v:
@@ -81,7 +82,7 @@ class IntelligentDriverModel:
             sideb_id,
             sideb_dist,
         ) = self.observer.observe(realvehicle_id_list)
-        # 变道阈值
+        # Lane change
         LCthreshold = 2.5
 
         # Control Acceleration
@@ -91,12 +92,12 @@ class IntelligentDriverModel:
             self.max_acceleration,
         )
 
-        # 变道判断
-        # 旁边有车无法变道
+        # Lane change judgment
+        # Cannot change lanes when there are cars nearby
         if sidef_dist <= 0 or sideb_dist >= 0:
             return self.control_acceleration
 
-        # 自身变道后加速度收益
+        # Acceleration benefits after self lane change
         if sidef_id:
             ego_lc_delta_v = ego_v - dgv.get_realvehicle(sidef_id).scalar_velocity
 
@@ -111,7 +112,7 @@ class IntelligentDriverModel:
             - self.control_acceleration
         )
 
-        # 后车加速度收益
+        # Rear acceleration benefit
         if back_id:
             back_v = dgv.get_realvehicle(back_id).scalar_velocity
             back_delta_v = back_v - ego_v
@@ -134,7 +135,7 @@ class IntelligentDriverModel:
         else:
             benefit_back_acc = 0
 
-        # 侧后车加速度收益
+        # Side rear acceleration benefit
         if sideb_id:
             sideb_v = dgv.get_realvehicle(sideb_id).scalar_velocity
             if sidef_id:
@@ -158,7 +159,7 @@ class IntelligentDriverModel:
         else:
             benefit_sideb_acc = 0
 
-        # 计算变道与否
+        # Calculate whether to change lanes or not
         if (
             benefit_ego_acc + self.politness * (benefit_back_acc + benefit_sideb_acc)
             > LCthreshold
@@ -173,7 +174,7 @@ class IDMObserver(Observer):
 
     def observe(self, realvehicle_id_list, mode="real"):
         """
-        得到计算控制信息的参数(前车距离, 自身速度与前车速度差)
+        Controller parameters
         """
         (
             front_id,
@@ -185,15 +186,15 @@ class IDMObserver(Observer):
             sideb_id,
             sideb_dist,
         ) = self.get_closest_vehicles(realvehicle_id_list, mode)
-        # 前车距离保险杠的距离
+        # The distance between the front car and the bumper
         front_dist -= gv.CAR_LENGTH
         back_dist += gv.CAR_LENGTH
         sidef_dist -= gv.CAR_LENGTH
         sideb_dist += gv.CAR_LENGTH
-        # 与前车速度差
+        # Speed gap
         ego_vehicle = dgv.get_realvehicle(self.ego_id)
         front_vehicle = dgv.get_realvehicle(front_id)
-        # 前方无车
+
         if not front_vehicle:
             front_dist = delta_v = None
         else:
@@ -214,8 +215,7 @@ class IDMObserver(Observer):
 
     def get_closest_vehicles(self, realvehicle_id_list, mode="real"):
         """
-        筛选出主车前后侧方最近车辆
-        mode = real || virtual, 代表传入的字典是realvehicle还是virtualvehicle
+        mode = real || virtual, Represents whether the input dictionary is a real vehicle or a virtual vehicle
         """
         self.close_vehicle_id_list = self.get_close_vehicle_id_list(realvehicle_id_list)
         ego_vehicle = dgv.get_realvehicle(self.ego_id)
@@ -232,7 +232,6 @@ class IDMObserver(Observer):
             ego_wp = ego_vehicle.waypoint
         else:
             raise ValueError("The mode value is wrong!")
-        # 对每辆车判断是否处于同一车道且前后距离最短
         for rvid in self.close_vehicle_id_list:
             if rvid != self.ego_id:
                 vehicle = dgv.get_realvehicle(rvid)
@@ -244,24 +243,23 @@ class IDMObserver(Observer):
                     raise ValueError("The mode value is wrong!")
                 rel_distance = emath.cal_distance_along_road(ego_wp, veh_wp)
                 if veh_wp.lane_id == ego_wp.lane_id:
-                    # 前方车辆
+                    # Front
                     if 0 < rel_distance < min_dist_front:
                         min_dist_front = rel_distance
                         min_id_front = rvid
-                    # 后方车辆
+                    # Back
                     if min_dist_back < rel_distance < 0:
                         min_dist_back = rel_distance
                         min_id_back = rvid
                 if veh_wp.lane_id != ego_wp.lane_id:
-                    # 侧前方车辆
+                    # Side Front
                     if 0 < rel_distance < min_dist_front:
                         min_dist_sidef = rel_distance
                         min_id_sidef = rvid
-                    # 侧后方车辆
+                    # Side Back
                     if min_dist_sideb < rel_distance < 0:
                         min_dist_sideb = rel_distance
                         min_id_sideb = rvid
-        # 返回前方最近车辆与其相对距离
         return (
             min_id_front,
             min_dist_front,

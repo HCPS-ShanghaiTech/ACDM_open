@@ -2,9 +2,10 @@ import carla
 import csv
 import json
 import torch
+import time
 import copy
 import logging
-import multiprocessing
+from multiprocessing.pool import Pool
 import utils.globalvalues as gv
 import utils.extendmath as emath
 import utils.dyglobalvalues as dgv
@@ -15,7 +16,7 @@ import decisionmodels.CDM.reward as rwd
 import decisionmodels.CDM.decision as dcs
 import decisionmodels.IDM.idmcontroller as idm
 import os
-from typing import Dict, Any
+from typing import Dict, Any, List
 from datetime import datetime
 from dstructures import EnumerateTree
 from vehicles import RealVehicle
@@ -123,8 +124,8 @@ def collision_classify(ego_vehicle: RealVehicle, npc_vehicle: RealVehicle) -> st
     Using for judge the location of collision for ego vehicle.
     Return choose in ["HeadCollision", "BackCollision", "SideAttack", "SideVictim"]
     """
-    ego_wp = emath.get_real_vehicle_waypoint(ego_vehicle)
-    npc_wp = emath.get_real_vehicle_waypoint(npc_vehicle)
+    ego_wp = dgv.get_map().get_waypoint(ego_vehicle.vehicle.get_location())
+    npc_wp = dgv.get_map().get_waypoint(npc_vehicle.vehicle.get_location())
     lon_dist = emath.cal_distance_along_road(ego_wp, npc_wp)
     if lon_dist > gv.CAR_LENGTH * 0.8:
         return "HeadCollision"
@@ -290,6 +291,7 @@ def set_cdm_vehicle(
     spawn_point: carla.Transform,
     init_velocity,
     is_main=False,
+    is_pickleable=False,
 ):
     """
     Install CDM to RealVehicle
@@ -306,7 +308,13 @@ def set_cdm_vehicle(
     controller = cdm.NormalCognitiveDriverModel(
         driving_style, observer, enumtree, risk_cal, reward_cal, decision
     )
-    return RealVehicle(vehicle, spawn_point, controller, init_velocity)
+    return RealVehicle(
+        vehicle,
+        spawn_point,
+        controller,
+        init_velocity,
+        virtual_pickleable=is_pickleable,
+    )
 
 
 def set_d2rl_vehicle(
@@ -333,6 +341,7 @@ def set_acdm_vehicle(
     main_id,
     spawn_point: carla.Transform,
     init_velocity,
+    is_pickleable=False,
 ):
     """
     Install ACDM to RealVehicle
@@ -346,7 +355,13 @@ def set_acdm_vehicle(
     controller = cdm.AdversarialCognitiveDriverModel(
         driving_style, observer, enumtree, risk_cal, reward_cal, decision
     )
-    return RealVehicle(vehicle, spawn_point, controller, init_velocity)
+    return RealVehicle(
+        vehicle,
+        spawn_point,
+        controller,
+        init_velocity,
+        virtual_pickleable=is_pickleable,
+    )
 
 
 def set_idm_vehicle(
@@ -381,33 +396,33 @@ def get_spawn_point(main_waypoint: carla.Waypoint, lane, rel_distance):
     """
     以主车为中心获取车辆生成点
     Param:
-    main_spawn_point -> carla.Waypoint() 主车生成点
-    lane -> int 0表示左车道, 1表示右车道
-    rel_distance -> float 相对距离
-    Return: carla.Transform()
+    main_spawn_point -> carla.Waypoint for Ego
+    lane -> int 0 for left, 1 for right
+    rel_distance -> float relative distance
+    Return: carla.Transform
     """
     if lane != 0 and lane != 1:
         raise ValueError("Wrong lane id!")
     lane_id = "Left" if lane == 0 else "Right"
     spawn_wp = None
-    # 生成在相同的车道上, 避免碰撞
+    # Same lane
     if gv.LANE_ID[lane_id] == main_waypoint.lane_id:
         if abs(rel_distance) <= gv.CAR_LENGTH:
             raise ValueError("The spawn point is too close!")
         spawn_wp = main_waypoint
-    # 生成在不同的车道上
+    # Another lane
     else:
         if lane == 0:
             spawn_wp = main_waypoint.get_left_lane()
         if lane == 1:
             spawn_wp = main_waypoint.get_right_lane()
-    # 获取相对位置的waypoint
+    # Relative position waypoint
     if rel_distance > 0:
         spawn_wp = spawn_wp.next(rel_distance)[0]
     else:
         spawn_wp = spawn_wp.previous(-rel_distance)[0]
 
-    # 沿道路法向量增加高度
+    # Increase height along the normal vector of the road
     res = spawn_wp.transform
     res.location = emath.add_height_to_waypoint(res, gv.CAR_HEIGHT / 2)
     return res
@@ -434,8 +449,182 @@ def normal_loop(
     Decision of each car in single scene for Normal experiment
     """
     if step % (gv.DECISION_DT / gv.STEP_DT) == 0:
-        tasks = list()
+        start = time.time()
+        all_num_leaves = 0
         for carid in dgv.get_realvehicle_id_list():
+            car = dgv.get_realvehicle(carid)
+            # Normal Decision
+            if car.vehicle.id in npc_realvehicle_list:
+                # If adversarial npc mode, run a partial decision
+                car.run_step(realvehicle_id_list, network=pred_net)
+                all_num_leaves += len(car.controller.enumeratetree.leaves)
+                main_car = dgv.get_realvehicle(main_id)
+                partial_realvehicle_id_list = realvehicle_id_list.copy()
+                partial_realvehicle_id_list.remove(carid)
+                partial_action = main_car.run_partial_step(realvehicle_id_list)
+                all_num_leaves += len(main_car.controller.enumeratetree.leaves)
+                # If main car's action changed, record relevance
+                if main_control_mode == "CDM":
+                    if partial_action != main_car.control_action:
+                        rel_steps += 1
+                    decision_exp_set(main_car.control_action, partial_action)
+                if main_control_mode == "IDM":
+                    real_action = cont_action_map(main_car.control_action, main_car)
+                    partial_action = cont_action_map(partial_action, main_car)
+                    if partial_action != real_action:
+                        rel_steps += 1
+                    decision_exp_set(real_action, partial_action)
+                total_steps += 1
+            elif car.vehicle.id == main_id:
+                car.run_step(realvehicle_id_list, network=pred_net)
+                all_num_leaves += len(car.controller.enumeratetree.leaves)
+        end_time = time.time() - start
+        # print("Number of leaves:", all_num_leaves)
+        # print("Cost time", end_time)
+        # print("Average cost:", end_time / all_num_leaves)
+        # Dangerous scene experiment
+        unsafe_list = monitor.update(step)
+        for state in unsafe_list:
+            if state not in unsafe_num_dict:
+                unsafe_num_dict[state] = 1
+            else:
+                unsafe_num_dict[state] += 1
+        num_unsafe += len(unsafe_list)
+    return rel_steps, total_steps, num_unsafe
+
+
+def normal_loop_multips(
+    step,
+    main_id,
+    realvehicle_id_list: list,
+    npc_realvehicle_list,
+    cdm_realvehicle_list,
+    main_control_mode,
+    monitor: FiniteStateMachine,
+    unsafe_num_dict,
+    pred_net,
+    rel_steps,
+    total_steps,
+    num_unsafe,
+    pool,
+):
+    """
+    Decision of each car in single scene for Normal experiment
+    """
+    if step % (gv.DECISION_DT / gv.STEP_DT) == 0:
+        start = time.time()
+        tasks = list()
+        non_cdm_realvehicle_list = list(
+            set(realvehicle_id_list) - set(cdm_realvehicle_list)
+        )
+        for carid in cdm_realvehicle_list:
+            car = dgv.get_realvehicle(carid)
+            # Normal Decision
+            if car.vehicle.id in npc_realvehicle_list:
+                # If adversarial npc mode, run a partial decision
+                could_change_lane = car.controller.run_forward_start(
+                    realvehicle_id_list
+                )
+                tasks.append(
+                    (
+                        car.controller.run_forward_middle,
+                        (
+                            car.controller.enumeratetree,
+                            car.controller.risk_calculator,
+                            car.controller.driving_style,
+                        ),
+                    ),
+                )
+                main_car = dgv.get_realvehicle(main_id)
+                partial_realvehicle_id_list = realvehicle_id_list.copy()
+                partial_realvehicle_id_list.remove(carid)
+                could_change_lane = main_car.controller.run_forward_start(
+                    realvehicle_id_list
+                )
+                tasks.append(
+                    (
+                        main_car.controller.run_forward_middle,
+                        (
+                            main_car.controller.enumeratetree,
+                            main_car.controller.risk_calculator,
+                            main_car.controller.driving_style,
+                        ),
+                    )
+                )
+                # If main car's action changed, record relevance
+            elif car.vehicle.id == main_id:
+                could_change_lane = car.controller.run_forward_start(
+                    realvehicle_id_list
+                )
+                main_task = (
+                    car.controller.run_forward_middle,
+                    (
+                        car.controller.enumeratetree,
+                        car.controller.risk_calculator,
+                        car.controller.driving_style,
+                    ),
+                )
+        tasks = [main_task] + tasks
+        results = [pool.apply_async(func, args) for func, args in tasks]
+        output = [result.get() for result in results]
+        all_num_leaves = 0
+        for carid in cdm_realvehicle_list:
+            car = dgv.get_realvehicle(carid)
+            # Normal Decision
+            if carid in npc_realvehicle_list:
+                # If adversarial npc mode, run a partial decision
+                num_lon, num_lat, preferred_leaves, other_leaves = output[
+                    get_result_id(cdm_realvehicle_list, carid, main_id, False)
+                ]
+                all_num_leaves += len(preferred_leaves) + len(other_leaves)
+                car.control_action = car.controller.run_forward_end(
+                    num_lon,
+                    num_lat,
+                    preferred_leaves,
+                    other_leaves,
+                    could_change_lane,
+                    network=pred_net,
+                )
+                main_car = dgv.get_realvehicle(main_id)
+                partial_realvehicle_id_list = realvehicle_id_list.copy()
+                partial_realvehicle_id_list.remove(carid)
+                num_lon, num_lat, preferred_leaves, other_leaves = output[
+                    get_result_id(cdm_realvehicle_list, carid, main_id, True)
+                ]
+                all_num_leaves += len(preferred_leaves) + len(other_leaves)
+                partial_action = main_car.controller.run_forward_end(
+                    num_lon,
+                    num_lat,
+                    preferred_leaves,
+                    other_leaves,
+                    could_change_lane,
+                    network=pred_net,
+                )
+                # If main car's action changed, record relevance
+                if main_control_mode == "CDM":
+                    if partial_action != main_car.control_action:
+                        rel_steps += 1
+                    decision_exp_set(main_car.control_action, partial_action)
+                if main_control_mode == "IDM":
+                    real_action = cont_action_map(main_car.control_action, main_car)
+                    partial_action = cont_action_map(partial_action, main_car)
+                    if partial_action != real_action:
+                        rel_steps += 1
+                    decision_exp_set(real_action, partial_action)
+                total_steps += 1
+            elif carid == main_id:
+                num_lon, num_lat, preferred_leaves, other_leaves = output[0]
+                all_num_leaves += len(preferred_leaves) + len(other_leaves)
+                car.control_action = car.controller.run_forward_end(
+                    num_lon,
+                    num_lat,
+                    preferred_leaves,
+                    other_leaves,
+                    could_change_lane,
+                    network=pred_net,
+                )
+        # Non-CDM vehicle, can't multiprocess
+        for carid in non_cdm_realvehicle_list:
             car = dgv.get_realvehicle(carid)
             # Normal Decision
             if car.vehicle.id in npc_realvehicle_list:
@@ -444,9 +633,6 @@ def normal_loop(
                 main_car = dgv.get_realvehicle(main_id)
                 partial_realvehicle_id_list = realvehicle_id_list.copy()
                 partial_realvehicle_id_list.remove(carid)
-                tasks.append(
-                    (main_car.controller.run_forward, partial_realvehicle_id_list, {})
-                )
                 partial_action = main_car.run_partial_step(realvehicle_id_list)
                 # If main car's action changed, record relevance
                 if main_control_mode == "CDM":
@@ -462,6 +648,10 @@ def normal_loop(
                 total_steps += 1
             elif car.vehicle.id == main_id:
                 car.run_step(realvehicle_id_list, network=pred_net)
+        end_time = time.time() - start
+        # print("Number of leaves:", all_num_leaves)
+        # print("Cost time", end_time)
+        # print("Average cost:", end_time / all_num_leaves)
         # Dangerous scene experiment
         unsafe_list = monitor.update(step)
         for state in unsafe_list:
@@ -471,6 +661,16 @@ def normal_loop(
                 unsafe_num_dict[state] += 1
         num_unsafe += len(unsafe_list)
     return rel_steps, total_steps, num_unsafe
+
+
+def get_result_id(cdm_realvehicle_list, ego_id, main_id, is_partial: bool):
+    """
+    For multiprocessing
+    """
+    if main_id in cdm_realvehicle_list:
+        return 2 * (cdm_realvehicle_list.index(ego_id) - 1) + 1 - int(is_partial)
+    else:
+        return 2 * cdm_realvehicle_list.index(ego_id) - int(is_partial)
 
 
 def d2rl_loop(

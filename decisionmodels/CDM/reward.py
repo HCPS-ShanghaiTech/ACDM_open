@@ -2,6 +2,7 @@ from utils.globalvalues import ACTION_SCORE
 from envs import CarModule
 from dstructures import *
 from typing import List
+from dstructures import EllipseGenerator
 import utils.extendmath as emath
 import utils.globalvalues as gv
 import torch

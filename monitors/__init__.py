@@ -1,2 +1,1 @@
-from .monitor import FiniteStateMachine
-from .posmatrix import PositionMatrix
+from .monitor import FiniteStateMachine, PositionMatrix

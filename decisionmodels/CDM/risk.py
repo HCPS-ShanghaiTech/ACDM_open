@@ -1,10 +1,14 @@
-from dstructures import EllipseGenerator
 import utils.extendmath as emath
 import utils.globalvalues as gv
 import numpy as np
+import carla
+import math
 from envs import CarModule
 from typing import List, Tuple
 from dstructures import *
+from utils.globalvalues import CAR_LENGTH
+from utils.extendmath import cal_length, cal_rel_location_curve
+from dstructures import EllipseGenerator
 
 
 class Risk(CarModule):
@@ -75,7 +79,7 @@ class CDMRisk(Risk):
         """
         ego_v_vehicle = leaf.virtual_vehicle_dict.get(self.ego_id)
         min_vid_front, min_dist_front, min_vid_back, min_dist_back = (
-            emath.get_lon_closest_vehicle(leaf.virtual_vehicle_dict, self.ego_id)
+            self.get_lon_closest_vehicle(leaf.virtual_vehicle_dict, self.ego_id)
         )
         ttc_front = -1
         ttc_back = -1
@@ -198,8 +202,6 @@ class CDMRisk(Risk):
                     if assis_vego.judge_collision(assis_vother):
                         collision_penalty += 1000
                         break
-                del assis_vego
-                del assis_vother
 
         return overspeed_penalty + collision_penalty
 
@@ -212,3 +214,32 @@ class CDMRisk(Risk):
         if ttc < 0 or ttc > threshold:
             return 0
         return (threshold - ttc) ** 2
+
+    @staticmethod
+    def get_lon_closest_vehicle(virtual_vehicle_dict, ego_id):
+        """
+        Filter out the nearest virtual_vehicles in the front and rear
+        """
+        ego_v_vehicle = virtual_vehicle_dict.get(ego_id)
+        min_dist_front = 1e9
+        min_dist_back = -1e9
+        min_vid_front = None
+        min_vid_back = None
+        ego_lane_id = ego_v_vehicle.waypoint.lane_id
+        # Determine whether each vehicle is in the same lane and has the shortest distance in front and behind
+        for vid in virtual_vehicle_dict.keys():
+            if vid != ego_id:
+                v_vehicle = virtual_vehicle_dict.get(vid)
+                rel_distance = emath.cal_distance_along_road(
+                    ego_v_vehicle.waypoint, v_vehicle.waypoint
+                )
+                if v_vehicle.waypoint.lane_id == ego_lane_id:
+                    # Front
+                    if 0 < rel_distance < min_dist_front:
+                        min_dist_front = rel_distance
+                        min_vid_front = vid
+                    # Back
+                    if min_dist_back < rel_distance < 0:
+                        min_dist_back = rel_distance
+                        min_vid_back = vid
+        return min_vid_front, min_dist_front, min_vid_back, min_dist_back

@@ -1,25 +1,40 @@
 import carla
 import math
 from utils.globalvalues import CAR_WIDTH, CAR_LENGTH
+from utils.pickleable import Transform, Location, Rotation
 
 
 class VirtualVehicle:
     """
-    代表未来状态的车辆, 不会出现在Carla中
+    Vehicles representing future states which will not appear in Simulator
     """
 
-    def __init__(self, id, waypoint, transform, scalar_velocity, control_action):
+    def __init__(
+        self, id, waypoint, transform, scalar_velocity, control_action, pickleable=False
+    ):
         self.id = id
         self.waypoint = waypoint
         self.transform = transform
         self.scalar_velocity = scalar_velocity
         self.control_action = control_action
+        self.pickleable = pickleable
 
     def clone_self(self):
-        return VirtualVehicle(
-            self.id,
-            self.waypoint.next(1e-9)[0],
-            carla.Transform(
+        if self.pickleable:
+            transform = Transform(
+                Location(
+                    self.transform.location.x,
+                    self.transform.location.y,
+                    self.transform.location.z,
+                ),
+                Rotation(
+                    self.transform.rotation.pitch,
+                    self.transform.rotation.yaw,
+                    self.transform.rotation.roll,
+                ),
+            )
+        else:
+            transform = carla.Transform(
                 carla.Location(
                     self.transform.location.x,
                     self.transform.location.y,
@@ -30,13 +45,17 @@ class VirtualVehicle:
                     self.transform.rotation.yaw,
                     self.transform.rotation.roll,
                 ),
-            ),
+            )
+        return VirtualVehicle(
+            self.id,
+            self.waypoint.next(1e-9)[0],
+            transform,
             self.scalar_velocity,
             self.control_action,
+            self.pickleable,
         )
 
     def judge_collision(self, other_virtual_vehicle):
-        # 与realvehicle.py中的collision_callback基本相同
         if (
             self.transform.location == carla.Location(0, 0, 0)
             or self.transform.location.distance_2d(
