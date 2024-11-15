@@ -5,6 +5,8 @@
 1. [Environment Setup](#environment-setup)
 2. [Quickly Started](#quickly-started)
 3. [Custom Scene Library](#custom-scene-library)
+4. [Multi Process Mode](#multi-process-mode)
+5. [Decision Example](#decision-example)
 ## Environment Setup
 1. Clone the repository
 ```bash
@@ -24,6 +26,11 @@ pip install -r requirement.txt
 ```bash
 git submodule update --init
 ```
+- The modified D2RL code: [d2rl-exp-for-ACDM](https://github.com/qj-hcps/d2rl-exp-for-ACDM)
+- For D2RL
+  - Paper: [Dense reinforcement learning for safety validation of autonomous vehicles](https://www.nature.com/articles/s41586-023-05732-2)
+  - Code: [Dense-Deep-Reinforcement-Learning
+](https://github.com/michigan-traffic-lab/Dense-Deep-Reinforcement-Learning?tab=readme-ov-file)
 2. Run scripts
 - For Windows
 ```bash
