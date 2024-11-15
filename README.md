@@ -1,7 +1,22 @@
-# A-CDM 实验版本
+# Closed-Loop Testing of Autonomous Driving Systems: A Safety-Critical, Effective, and Realistic Evaluation Using the Adversarial Cognitive Driver Model
 
-
-### 运行顺序
+![Platform](images/platform.png)
+## Table of Contents
+1. [Environment Setup](#environment-setup)
+## Environment Setup
+1. Clone the repository
+```shell
+git clone https://github.com/HCPS-ShanghaiTech/ACDM_open.git
+cd ACDM_open
+```
+2. Create environment && I
+3. nstall the dependencies
+```shell
+conda create -n acdm python=3.10 # Need Python version >= 3.10
+conda activate acdm
+pip install -r requirement.txt
+```
+### Quickly Started
 ```shell
 # 切换地图
 $ python load_world.py
