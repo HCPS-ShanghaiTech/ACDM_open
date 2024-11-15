@@ -5,23 +5,41 @@
 1. [Environment Setup](#environment-setup)
 ## Environment Setup
 1. Clone the repository
-```shell
+```bash
 git clone https://github.com/HCPS-ShanghaiTech/ACDM_open.git
 cd ACDM_open
 ```
-2. Create environment && I
-3. nstall the dependencies
-```shell
+2. Create environment && Install the dependencies
+```bash
 conda create -n acdm python=3.10 # Need Python version >= 3.10
 conda activate acdm
 pip install -r requirement.txt
 ```
-### Quickly Started
-```shell
-# 切换地图
-$ python load_world.py
-# 运行系统
-$ python main.py 
+## Quickly Started
+#### Experiment Scripts
+1. Import submodule (needed for all d2rl experiment)
+```bash
+git submodule update --init
+```
+2. Run scripts
+- For Windows
+```bash
+winscript/short_experiment.bat
+winscript/long_experiment.bat
+```
+- For Linux
+```bash
+sh linuxscripts/short_experiment.sh
+sh linuxscripts/long_experiment.sh
+```
+#### Preset Scene Library
+1. Load carla world
+```python
+python load_world.py
+```
+2. Preset scene example
+```python
+python main.py -t "short" -s "ttc" -n "acdm" -e "cdm"
 ```
 ### 场景库输入格式
 第一行输入车辆数n: int
