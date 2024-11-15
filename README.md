@@ -3,6 +3,8 @@
 ![Platform](images/platform.png)
 ## Table of Contents
 1. [Environment Setup](#environment-setup)
+2. [Quickly Started](#quickly-started)
+3. [Custom Scene Library](#custom-scene-library)
 ## Environment Setup
 1. Clone the repository
 ```bash
@@ -15,6 +17,7 @@ conda create -n acdm python=3.10 # Need Python version >= 3.10
 conda activate acdm
 pip install -r requirement.txt
 ```
+3. Download our Neural network weights at (TODO: Now set in the repository)
 ## Quickly Started
 #### Experiment Scripts
 1. Import submodule (needed for all d2rl experiment)
@@ -34,16 +37,34 @@ sh linuxscripts/long_experiment.sh
 ```
 #### Preset Scene Library
 1. Load carla world
-```python
+```bash
 python load_world.py
 ```
-2. Preset scene example
-```python
-python main.py -t "short" -s "ttc" -n "acdm" -e "cdm"
+2. Preset scene example, `-s` for scene type in ["ttc", "action"], `-n` for npc controller in ["cdm", "acdm", "idm", "d2rl"], `-e` for ego controller in ["cdm", "idm"], `-d` for max duration(s) of single scene.
+```bash
+python main.py -t "short" -s "ttc" -n "acdm" -e "cdm" -d 10
 ```
-### 场景库输入格式
-第一行输入车辆数n: int
-第二行输入被测车辆的(init_vel, driving_style(没有则置0), 控制器("CDM", "ACDM", "OTHER"))
-接下来的n-1行输入每辆车的(init_vel, lane_id, rel_pos, driving_style(没有则置0), 控制器("CDM", "ACDM", "OTHER"))
-lane_id为0在不同车道, 1在相同车道
-To be modified...
+## Custom Scene Library
+The init scenes are saved in a `.csv` file.
+#### Scene library input format
+- First line save the number of cars: `n: int`
+- Second line save the main car's information `(init_speed: double, driving_style: double, controller: str)`
+- The next n-1 lines input each npc car's `(init_speed: double, lane_id: int, rel_pos: double, driving_style: double, controller: str)`
+    - Where `lane_id` is 0 means at different lane from the main car, 1 means the same.
+    - For controllers do not need `driving_style`, just miss it.
+
+#### Run your custom scene
+You can specify the file path (with higher priority than the preset scenes) like:
+```bash
+python main.py -t "short" -d 10 -p "path_for_your_csv_file"
+```
+
+## Multi Process Mode
+For CDM and ACDM controller, the prediction module may cost high computational complexity in scenes with dense vehicular traffic (>= 8 cars in 50m around main car), so we have implemented a multi process optimization mode for CDM and ACDM controllers, for users with multi-core CPUs, you can add `-m` to accelerate simulation experiment.
+(Hint: It is not recommended when there are few vehicles such as our 3 cars experiment.)
+```bash
+python main.py (-args ...) -m
+```
+
+## Decision Example
+![Exp](images/exp.png)
