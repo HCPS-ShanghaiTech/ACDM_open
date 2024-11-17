@@ -1,5 +1,4 @@
 #!/bin/bash
-
 python load_world.py
 python main.py -t "short" -s "action" -n "acdm" -e "cdm" -d 5 
 python load_world.py

@@ -1,8 +1,6 @@
 import utils.extendmath as emath
 import utils.globalvalues as gv
 import numpy as np
-import carla
-import math
 from envs import CarModule
 from typing import List, Tuple
 from dstructures import *

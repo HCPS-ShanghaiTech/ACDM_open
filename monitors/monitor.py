@@ -82,7 +82,7 @@ class PositionMatrix:
 
 class FiniteStateMachine:
     """
-    Determines dangerous scenarios using the position matrix.
+    Determines dangerous events using the position matrix.
     """
 
     def __init__(self, step, pos_matirx: PositionMatrix, max_seq_len=4) -> None:

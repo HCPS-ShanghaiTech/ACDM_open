@@ -1,5 +1,5 @@
 """
-Dynamic global dict
+Dynamic global values
 """
 
 import carla

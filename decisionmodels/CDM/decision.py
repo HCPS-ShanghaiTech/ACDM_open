@@ -1,3 +1,6 @@
+"Decision module of CDM/ACDM"
+
+
 class Decision:
     """
     Base class for decision-making.

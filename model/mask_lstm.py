@@ -1,11 +1,11 @@
 """
-带特征掩码机制的用于预测驾驶员意图的深度学习模型。
+A deep learning model with feature masking mechanism for predicting driver intent.
 """
 
 import torch.nn as nn
 
 
-# LSTM + MLP 模型较为简单，训练效果还行
+# LSTM + MLP
 class NaiveLSTM(nn.Module):
     def __init__(self, input_size, hidden_size, num_classes, num_layers):
         super().__init__()
@@ -31,7 +31,7 @@ class NaiveLSTM(nn.Module):
         return out
 
 
-# 用于轨迹预测，已废弃
+# For Traj prediction
 class TrajLSTM(nn.Module):
     def __init__(self, input_size, hidden_size, output_size, num_layers):
         super().__init__()

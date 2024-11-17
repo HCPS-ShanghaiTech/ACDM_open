@@ -1,3 +1,5 @@
+"For multi process"
+
 from scipy.spatial import distance
 import utils.dyglobalvalues as dgv
 import math

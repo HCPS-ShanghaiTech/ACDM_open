@@ -8,7 +8,7 @@ from decisionmodels.CDM.observer import Observer
 
 class IntelligentDriverModel:
     """
-    IDM Model, 一种基于加速度的智能驾驶员决策模型
+    IDM(car following) + MOBIL(lane changing) Model
     """
 
     def __init__(

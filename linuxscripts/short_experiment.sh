@@ -1,5 +1,4 @@
 #!/bin/bash
-
 python load_world.py
 python main.py -t "short" -s "ttc" -n "acdm" -e "cdm"
 python load_world.py

@@ -83,7 +83,7 @@ def cal_rel_location_curve(target_location, start_location):
     result_location = carla.Location(0, 0, 0)
     # Now only complete 2-lane version
     result_location.y = abs(start_wp.lane_id - target_wp.lane_id) * start_wp.lane_width
-    result_location.z = 0  # not use
+    result_location.z = 0  # will not use
     # x means longitude distance
     result_location.x = cal_distance_along_road(start_wp, target_wp)
 

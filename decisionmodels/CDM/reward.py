@@ -65,7 +65,9 @@ class ACDMReward(Reward):
     def __init__(self, ego_id, main_id) -> None:
         super().__init__(ego_id, main_id)
 
-    def cal_reward_dict(self, root, preferred_leaves, other_leaves, action_batch):
+    def cal_reward_dict(
+        self, root, preferred_leaves, other_leaves, action_batch
+    ) -> dict:
         """
         Scoring method.
         """

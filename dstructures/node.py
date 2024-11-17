@@ -62,18 +62,6 @@ class EnumerateTree(CarModule):
         )
         self.probability = leaf.risk
 
-    def generate_root_from_partial(self, close_vehicle_id_list, lon_levels, lat_levels):
-        virtual_vehicle_dict = {}
-        for cid in close_vehicle_id_list:
-            virtual_vehicle_dict[cid] = dgv.get_realvehicle(cid).clone_to_virtual()
-        self.root = CIPORoot(
-            self.ego_id,
-            self.main_id,
-            virtual_vehicle_dict,
-            lon_levels,
-            lat_levels,
-        )
-
     def grow_tree(self):
         """
         Generate leaf nodes from the root node.
@@ -89,19 +77,6 @@ class EnumerateTree(CarModule):
         self.num_lat_leaves = num_lat
 
         return self.leaves, num_lon, num_lat
-
-    def grow_tree_full(self):
-        """
-        Generate all leaf nodes from the root node.
-        Return the list of leaf nodes and the count of two types of leaf nodes.
-        """
-        if self.root == None:
-            raise ValueError("You have not generated a root node.")
-
-        leaves = self.root.generate_leaves_full()
-        self.leaves = leaves
-
-        return self.leaves
 
 
 class Node(CarModule):
@@ -311,35 +286,6 @@ class CIPORoot(Node):
             self.lat_levels,
         )
 
-    def generate_leaves_full(self):
-        """
-        Fully generate leaf nodes.
-        Return all leaf nodes and their count.
-        """
-        leaves = []
-        v_vehicle_id_list = list(self.virtual_vehicle_dict.keys())
-        iter_list = self.generate_iter_list_full()
-        leaf_id = 0
-        for comb in iter_list:
-            virtual_vehicle_dict_leaf = {}
-            for i in range(len(comb)):
-                v_action = comb[i]
-                vid = v_vehicle_id_list[i]
-                v_vehicle = self.virtual_vehicle_dict.get(vid)
-                virtual_vehicle_dict_leaf[vid] = (
-                    self.generate_next_step_virtual_vehicle(v_vehicle, v_action)
-                )
-            leaves.append(
-                Leaf(
-                    leaf_id,
-                    self.ego_id,
-                    self.main_id,
-                    virtual_vehicle_dict_leaf,
-                )
-            )
-            leaf_id += 1
-        return leaves
-
     def generate_leaves(self, dir_type):
         """
         Generate leaf nodes.
@@ -373,27 +319,6 @@ class CIPORoot(Node):
             )
             leaf_id += 1
         return leaves, len(leaves)
-
-    def generate_iter_list_full(self):
-        res = []
-        consider_actions = []
-        if not self.virtual_vehicle_dict:
-            return res
-        for vid in self.virtual_vehicle_dict.keys():
-            v_vehicle = self.virtual_vehicle_dict.get(vid)
-            consider_action = gv.ACTION_SPACE
-            if v_vehicle.waypoint.lane_id == gv.LANE_ID["Left"]:
-                consider_action = [
-                    "MAINTAIN",
-                    "ACCELERATE",
-                    "DECELERATE",
-                    "SLIDE_RIGHT",
-                ]
-            if v_vehicle.waypoint.lane_id == gv.LANE_ID["Right"]:
-                consider_action = ["MAINTAIN", "ACCELERATE", "DECELERATE", "SLIDE_LEFT"]
-            consider_actions.append(consider_action)
-        res = list(itertools.product(*consider_actions))
-        return res
 
     def generate_iter_list(self, dir_type):
         """

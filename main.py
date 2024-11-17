@@ -7,10 +7,8 @@ import utils.globalvalues as gv
 import utils.extendmath as emath
 import utils.dyglobalvalues as dgv
 from collections import Counter
-from typing import Dict, Any
 from monitors import PositionMatrix, FiniteStateMachine
 from manager import *
-import time
 
 
 def run_experiment(scene_path, scene_type, duration, exp_mode, pool=None):
@@ -45,7 +43,6 @@ def run_experiment(scene_path, scene_type, duration, exp_mode, pool=None):
     # multiprocess
     is_pickleable = True if pool else False
 
-    start_time = time.time()
     for scene_idx in range(num_scenes):
         num_cars, main_speed, main_driving_style, main_control_mode, npc_info = (
             resolve_scene_info(scene_info_list[scene_idx])
@@ -333,7 +330,6 @@ def run_experiment(scene_path, scene_type, duration, exp_mode, pool=None):
             else:
                 world.tick()
                 step += 1
-    print(time.time() - start_time)
     save_result(
         datetime.now().strftime("%Y-%m-%d-%H:%M:%S"),
         num_scenes,

@@ -2,7 +2,6 @@
 Cognitive Driver Model
 """
 
-import utils.globalvalues as gv
 from .observer import CIPO_Observer
 from dstructures import EnumerateTree
 from .risk import CDMRisk

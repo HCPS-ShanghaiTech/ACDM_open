@@ -17,7 +17,7 @@ class VirtualVehicle:
         self.transform = transform
         self.scalar_velocity = scalar_velocity
         self.control_action = control_action
-        self.pickleable = pickleable
+        self.pickleable = pickleable  # For multi process
 
     def clone_self(self):
         if self.pickleable:

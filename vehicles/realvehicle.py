@@ -3,7 +3,6 @@ import utils.globalvalues as gv
 import utils.dyglobalvalues as dgv
 import math
 from .virtualvehicle import VirtualVehicle
-import utils.extendmath as emath
 from utils import pickleable
 
 
