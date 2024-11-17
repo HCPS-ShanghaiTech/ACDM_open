@@ -8,6 +8,9 @@
 4. [Multi Process Mode](#multi-process-mode)
 5. [Decision Example](#decision-example)
 ## Environment Setup
+0. Download CARLA
+- dThe CARLA version we used is 0.9.15, you can download and setup it follow [carla.org](#https://carla.org/).
+
 1. Clone the repository
 ```bash
 git clone https://github.com/HCPS-ShanghaiTech/ACDM_open.git
@@ -19,7 +22,7 @@ conda create -n acdm python=3.10 # Need Python version >= 3.10
 conda activate acdm
 pip install -r requirement.txt
 ```
-3. Download our Neural network weights at (TODO: Now set in the repository)
+3. Download our Neural network weights at (TODO: Now set in the repository)d
 ## Quickly Started
 #### Experiment Scripts
 1. Import submodule (needed for all d2rl experiment)
