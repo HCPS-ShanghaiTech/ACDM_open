@@ -37,13 +37,13 @@ git submodule update --init
 2. Run scripts
 - For Windows
 ```bash
-winscript/short_experiment.bat
-winscript/long_experiment.bat
+scripts/win/short_experiment.bat
+scripts/win/long_experiment.bat
 ```
 - For Linux
 ```bash
-sh linuxscripts/short_experiment.sh
-sh linuxscripts/long_experiment.sh
+sh scripts/linux/short_experiment.sh
+sh scripts/linux/long_experiment.sh
 ```
 #### Preset Scene Library
 1. Load carla world
