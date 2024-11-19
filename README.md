@@ -1,7 +1,7 @@
 # Closed-Loop Testing of Autonomous Driving Systems: A Safety-Critical, Effective, and Realistic Evaluation Using the Adversarial Cognitive Driver Model
 
 ![Platform](images/platform.png)
-## Table of Contents
+## :speech_balloon: Table of Contents 
 1. [Environment Setup](#environment-setup)
 2. [Quickly Started](#quickly-started)
 3. [Custom Scene Library](#custom-scene-library)
@@ -78,3 +78,9 @@ python main.py (-args ...) -m
 
 ## Decision Example
 ![Exp](images/exp.png)
+
+## Acknowledgment :pray:
+
+This project is a CARLA version developed based on a Unity-based private project of HCPS-Lab. I want to especially acknowledge the following developers and contributors: [Renzhi Tang](https://github.com/zicyair), [Junyu Diao](https://github.com/martindiao) and [Yi Gu](https://github.com/SlidingEagle), who provided essential technical insights and a robust foundation.
+
+- **[Previous Work]** : [Cognitive-Digital-Twin-Based Driving Assistance](https://ieeexplore.ieee.org/document/10184072)
