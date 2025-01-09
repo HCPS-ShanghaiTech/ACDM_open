@@ -3,9 +3,7 @@ import csv
 import json
 import torch
 import time
-import copy
 import logging
-from multiprocessing.pool import Pool
 import utils.globalvalues as gv
 import utils.extendmath as emath
 import utils.dyglobalvalues as dgv
@@ -16,7 +14,6 @@ import decisionmodels.CDM.reward as rwd
 import decisionmodels.CDM.decision as dcs
 import decisionmodels.IDM.idmcontroller as idm
 import os
-from typing import Dict, Any, List
 from datetime import datetime
 from dstructures import EnumerateTree
 from vehicles import RealVehicle
@@ -26,6 +23,9 @@ from monitors import FiniteStateMachine
 LOG_PATH = os.path.join(
     "logs", "run_" + datetime.now().strftime("%Y_%m_%d_%H_%M_%S") + ".log"
 )
+
+if not os.path.exists("logs"):
+    os.makedirs("logs")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -445,6 +445,7 @@ def normal_loop(
     Decision of each car in single scene for Normal experiment
     """
     if step % (gv.DECISION_DT / gv.STEP_DT) == 0:
+        start = time.time()
         all_num_leaves = 0
         for carid in dgv.get_realvehicle_id_list():
             car = dgv.get_realvehicle(carid)
@@ -473,6 +474,11 @@ def normal_loop(
             elif car.vehicle.id == main_id:
                 car.run_step(realvehicle_id_list, network=pred_net)
                 all_num_leaves += len(car.controller.enumeratetree.leaves)
+        end_time = time.time() - start
+        print("Number of leaves:", all_num_leaves)
+        print("Cost time", end_time)
+        print("Average cost:", end_time / all_num_leaves)
+        # Dangerous scene experiment
         unsafe_list = monitor.update(step)
         for state in unsafe_list:
             if state not in unsafe_num_dict:
@@ -502,6 +508,7 @@ def normal_loop_multips(
     Decision of each car in single scene for Normal experiment
     """
     if step % (gv.DECISION_DT / gv.STEP_DT) == 0:
+        start = time.time()
         tasks = list()
         non_cdm_realvehicle_list = list(
             set(realvehicle_id_list) - set(cdm_realvehicle_list)
@@ -637,6 +644,11 @@ def normal_loop_multips(
                 total_steps += 1
             elif car.vehicle.id == main_id:
                 car.run_step(realvehicle_id_list, network=pred_net)
+        end_time = time.time() - start
+        print("Number of leaves:", all_num_leaves)
+        print("Cost time", end_time)
+        print("Average cost:", end_time / all_num_leaves)
+        # Dangerous scene experiment
         unsafe_list = monitor.update(step)
         for state in unsafe_list:
             if state not in unsafe_num_dict:
