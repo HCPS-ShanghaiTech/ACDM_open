@@ -445,20 +445,16 @@ def normal_loop(
     Decision of each car in single scene for Normal experiment
     """
     if step % (gv.DECISION_DT / gv.STEP_DT) == 0:
-        start = time.time()
-        all_num_leaves = 0
         for carid in dgv.get_realvehicle_id_list():
             car = dgv.get_realvehicle(carid)
             # Normal Decision
             if car.vehicle.id in npc_realvehicle_list:
                 # If adversarial npc mode, run a partial decision
                 car.run_step(realvehicle_id_list, network=pred_net)
-                all_num_leaves += len(car.controller.enumeratetree.leaves)
                 main_car = dgv.get_realvehicle(main_id)
                 partial_realvehicle_id_list = realvehicle_id_list.copy()
                 partial_realvehicle_id_list.remove(carid)
                 partial_action = main_car.run_partial_step(realvehicle_id_list)
-                all_num_leaves += len(main_car.controller.enumeratetree.leaves)
                 # If main car's action changed, record relevance
                 if main_control_mode == "CDM":
                     if partial_action != main_car.control_action:
@@ -473,11 +469,6 @@ def normal_loop(
                 total_steps += 1
             elif car.vehicle.id == main_id:
                 car.run_step(realvehicle_id_list, network=pred_net)
-                all_num_leaves += len(car.controller.enumeratetree.leaves)
-        end_time = time.time() - start
-        print("Number of leaves:", all_num_leaves)
-        print("Cost time", end_time)
-        print("Average cost:", end_time / all_num_leaves)
         # Dangerous scene experiment
         unsafe_list = monitor.update(step)
         for state in unsafe_list:
@@ -563,7 +554,6 @@ def normal_loop_multips(
         tasks = [main_task] + tasks
         results = [pool.apply_async(func, args) for func, args in tasks]
         output = [result.get() for result in results]
-        all_num_leaves = 0
         for carid in cdm_realvehicle_list:
             car = dgv.get_realvehicle(carid)
             # Normal Decision
@@ -572,7 +562,6 @@ def normal_loop_multips(
                 num_lon, num_lat, preferred_leaves, other_leaves = output[
                     get_result_id(cdm_realvehicle_list, carid, main_id, False)
                 ]
-                all_num_leaves += len(preferred_leaves) + len(other_leaves)
                 car.control_action = car.controller.run_forward_end(
                     num_lon,
                     num_lat,
@@ -587,7 +576,6 @@ def normal_loop_multips(
                 num_lon, num_lat, preferred_leaves, other_leaves = output[
                     get_result_id(cdm_realvehicle_list, carid, main_id, True)
                 ]
-                all_num_leaves += len(preferred_leaves) + len(other_leaves)
                 partial_action = main_car.controller.run_forward_end(
                     num_lon,
                     num_lat,
@@ -610,7 +598,6 @@ def normal_loop_multips(
                 total_steps += 1
             elif carid == main_id:
                 num_lon, num_lat, preferred_leaves, other_leaves = output[0]
-                all_num_leaves += len(preferred_leaves) + len(other_leaves)
                 car.control_action = car.controller.run_forward_end(
                     num_lon,
                     num_lat,
@@ -644,10 +631,6 @@ def normal_loop_multips(
                 total_steps += 1
             elif car.vehicle.id == main_id:
                 car.run_step(realvehicle_id_list, network=pred_net)
-        end_time = time.time() - start
-        print("Number of leaves:", all_num_leaves)
-        print("Cost time", end_time)
-        print("Average cost:", end_time / all_num_leaves)
         # Dangerous scene experiment
         unsafe_list = monitor.update(step)
         for state in unsafe_list:
